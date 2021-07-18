@@ -12,6 +12,7 @@
   "author": "Llorenç Pujol Ferriol",
   "license": "MIT",
   "dependencies": {
+    "dialog-polyfill": "^0.5.6",
     "lindenmayer": "^1.5.4",
     "pixi.js": "~5.3.3"
   },

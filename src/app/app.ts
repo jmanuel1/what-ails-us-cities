@@ -125,8 +125,11 @@ export class GameApp {
     GameApp.height = height;
 
 
-     // Hack for parcel HMR
-    parent.replaceChild(this.app.view, parent.lastElementChild);
+    // Hack for parcel HMR
+    if (parent.lastElementChild)
+      parent.replaceChild(this.app.view, parent.lastElementChild);
+    else
+      parent.appendChild(this.app.view);
 
     GameApp.SetupGame();
 
