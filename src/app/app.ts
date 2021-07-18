@@ -129,7 +129,7 @@ export class GameApp {
 
     GameApp.SetupGame();
 
-    let roadInstructions = roadsystem.iterate(5);
+    let roadInstructions = roadsystem.iterate(7);
     this.roadSystem = new RoadSystem(roadInstructions, GameApp.Width, GameApp.height);
   }
 

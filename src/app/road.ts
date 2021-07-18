@@ -9,52 +9,51 @@ export let roadsystem = new LSystem({
       productions: {
         'X': 'F-[[X]+X]+F[+FX]-X',
         'F': {
-          successors: [{weight: 95, successor: 'FF'}, {weight: 5, successor: 'FC'}]
+          successors: [{weight: 100, successor: 'FF'}]
         }
       }
 });
 
 export class RoadSystem {
   segments: RoadSegment[];
+  grid: Grid;
 
   constructor(instructions: string, width: number, height: number) {
     let angle = 0.0, x = width/2, y = height/2, roadEnded = false, previousSegment = null;
+    let tileCountX = Math.floor(width/10);
+    let tileCountY = Math.floor(height/10);
+    let tileX = Math.floor(tileCountX/2), tileY = Math.floor(tileCountY/2);
     this.segments = [];
+    this.grid = new Grid(10, 10);
+    let direction = 'down';
     let stack = [];
     for (let char of instructions) {
       let deltaX, deltaY, state, newX, newY, segment, culDeSac;
       switch (char) {
         case 'F':
           // forward
-          deltaX = 10 * Math.sin(angle);
-          deltaY = 10 * Math.cos(angle);
-          newX = Math.max(0, Math.min(x + deltaX, width));
-          newY = Math.max(0, Math.min(y + deltaY, height));
-          if (!roadEnded) {
-
-            segment = new RoadSegment(x, y, newX, newY, previousSegment);
-            if (this.segments.some(s => s.overlaps(segment))) {
-              segment.destroy();
-            } else {
-              this.segments.push(segment);
-              previousSegment?.nextSegment = segment;
-              previousSegment = segment;
-            }
+          segment = new Tile(this.edgesFromDirection(direction));
+          if (this.grid.hasNonEmptyTileAt(tileX, tileY)) {
+            segment.destroy();
+          } else {
+            this.grid.push(segment, tileX, tileY);
           }
-          x = newX;
-          y = newY;
+          tileX += direction === 'left' ? -1 : direction === 'right' ? 1 : 0;
+          tileY += direction === 'up' ? -1 : direction === 'down' ? 1 : 0;
+          tileX = Math.min(tileCountX, Math.max(0, tileX));
+          tileY = Math.min(tileCountY, Math.max(0, tileY));
           break;
         case '-':
           // -pi/2 radians to angle
-          angle -= Math.PI/2;
+          direction = this.turnClockwise(direction);
           break;
         case '+':
           // +pi/2 radians to angle
-          angle += Math.PI/2;
+          direction = this.turnCounterClockwise(direction);
           break;
         case '[':
           // push position and angle
-          stack.push({x, y, angle, roadEnded, previousSegment});
+          stack.push({x, y, angle, roadEnded, previousSegment, direction, tileX, tileY});
           break;
         case ']':
           // pop position and angle
@@ -68,111 +67,135 @@ export class RoadSystem {
           roadEnded = state.roadEnded;
           roadEnded = false;
           previousSegment = state.previousSegment;
+          direction = state.direction;
+          tileX = state.tileX;
+          tileY = state.tileY;
           break;
         case 'X':
-          break;
-        case 'C':
-          // cul-de-sac
-          culDeSac = new PIXI.Graphics();
-          culDeSac.beginFill().drawCircle(x, y, 5).endFill();
-          GameApp.Stage.addChild(culDeSac);
-          // roadEnded = true;
           break;
         default:
           console.warn(`RoadSystem doesn't understand ${char}`);
           break;
       }
     }
-    this.segments.forEach(s => {
-      s.draw();
-      if (!s.previousSegment) {
-        let culDeSac = new PIXI.Graphics();
-        culDeSac.beginFill().drawCircle(s.start.x, s.start.y, 5).endFill();
-        GameApp.Stage.addChild(culDeSac);
-      }
-      if (!s.nextSegment) {
-        let culDeSac = new PIXI.Graphics();
-        culDeSac.beginFill().drawCircle(s.end.x, s.end.y, 5).endFill();
-        GameApp.Stage.addChild(culDeSac);
-      }
+    this.grid.draw();
+  }
+
+  edgesFromDirection(direction: Direction) {
+    return {
+      up: {top: true, bottom: true, left: false, right: false},
+      down: {top: true, bottom: true, left: false, right: false},
+      left: {top: false, bottom: false, left: true, right: true},
+      right: {top: false, bottom: false, left: true, right: true},
+    }[direction];
+  }
+
+  turnClockwise(direction: Direction) {
+    return {
+      up: 'right',
+      down: 'left',
+      left: 'up',
+      right: 'down'
+    }[direction];
+  }
+
+  turnCounterClockwise(direction: Direction)  {
+    return {
+      up: 'left',
+      down: 'right',
+      left: 'down',
+      right: 'up'
+    }[direction];
+  }
+}
+
+type Direction = 'up' | 'down' | 'left' | 'right';
+
+class Grid {
+  grid: Tile[][];
+  tileWidth, tileHeight: number;
+
+  constructor(tileWidth: number, tileHeight: number) {
+    this.grid = [];
+    this.tileWidth = tileWidth;
+    this.tileHeight = tileHeight;
+  }
+
+  public hasNonEmptyTileAt(x: number, y: number) {
+    if (!(this.grid[x] && this.grid[x][y])) {
+      return false;
+    }
+    return this.grid[x][y].isNonEmpty();
+  }
+
+  public push(tile: Tile, x: number, y: number) {
+    if (!this.grid[x]) {
+      this.grid[x] = [];
+    }
+    this.grid[x][y] = tile;
+  }
+
+  draw() {
+    this.grid.forEach((column, i) => {
+      column.forEach((tile, j) => {
+        tile.draw(i * this.tileWidth, j * this.tileHeight, this.tileWidth, this.tileHeight);
+      });
     });
   }
-
-
 }
 
-class RoadSegment {
-  start: {x: number, y: number};
-  end: {x: number, y: number};
+type Edges = {
+  top: boolean,
+  right: boolean,
+  left: boolean,
+  bottom: boolean
+};
+
+class Tile {
+  edges: Edges;
   road: PIXI.DisplayObject;
-  previousSegment: RoadSegment;
-  nextSegment: RoadSegment?;
-  static prints = 0;
-  /**
-   *
-   */
-  constructor(startX: number, startY: number, endX: number, endY: number, previousSegment: RoadSegment) {
-    this.start = {x: startX, y: startY};
-    this.end = {x: endX, y: endY};
+
+
+  constructor(edges: Edges) {
+    this.edges = edges;
+    this.road = null;
+  }
+
+  destroy() {
+    this.edges = null;
+    this.road?.destroy();
+  }
+
+  isNonEmpty() {
+    return Object.values(this.edges).some(x => x);
+  }
+
+  isEmpty() {
+    return !this.isNonEmpty();
+  }
+
+  draw(x: number, y: number, width: number, height: number) {
     this.road = new PIXI.Graphics();
+    let startX, startY, endX, endY;
+    if (this.edges.top && this.edges.bottom) {
+      startX = x + width/2;
+      startY = y;
+      endX = x + width/2;
+      endY = y + height;
+    } else if (this.edges.left && this.edges.right) {
+      startX = x;
+      startY = y + height/2;
+      endX = x + height;
+      endY = y + height/2;
+    } else if (this.isEmpty()) {
+
+    } else {
+      console.warn('tile not drawn');
+    }
+
     this.road.moveTo(startX, startY);
     this.road.lineStyle(5, 0x000000).lineTo(endX, endY);
-    this.previousSegment = previousSegment;
-    this.nextSegment = null;
-  }
-
-  public draw() {
-
     GameApp.Stage.addChild(this.road);
+
   }
-
-  public destroy() {
-    this.road.destroy();
-  }
-
-  public overlaps(segment: RoadSegment) {
-    // https://algorithmtutor.com/Computational-Geometry/Check-if-two-line-segment-intersect/
-    let p1 = new Point(this.start);
-    let p2 = new Point(this.end);
-    let p3 = new Point(segment.start);
-    let p4 = new Point(segment.end);
-
-    let d1 = p1.minus(p3).cross(p4.minus(p3));
-    let d2 = p2.minus(p3).cross(p4.minus(p3));
-    let d3 = p3.minus(p1).cross(p2.minus(p1));
-    let d4 = p4.minus(p1).cross(p2.minus(p1));
-    // if (RoadSegment.prints < 200) console.log(d1, d2, d3, d4);
-    // ((d1<0 and d2>0)or((d1>0 and d2<0)) and (d3>0 and d4<0) or (d3<0 and d4>0))
-    let result = ((d1 < 0n && d2 > 0n) ||
-      ((d1 > 0n && d2 < 0n)) &&
-      (d3 > 0n && d4 < 0n) ||
-      (d3 < 0n && d4 > 0n));
-    // if (RoadSegment.prints < 200) console.log(result);
-    // RoadSegment.prints++;
-    return result;
-  }
-}
-
-class Point {
-  x, y: BigInt;
-
-  constructor(point: {x: number, y: number}) {
-    this.x = BigInt(round(point.x));
-    this.y = BigInt(round(point.y));
-  }
-
-  public minus(point: Point) {
-    return new Point({x: this.x - point.x, y: this.y - point.y});
-  }
-
-  public cross(point: Point) {
-    return this.x * point.y - point.x * this.y;
-  }
-}
-
-function round(n: number | BigInt) {
-  if (typeof n === 'number') {
-    return Math.round(n);
-  }
-  return n;
 }
