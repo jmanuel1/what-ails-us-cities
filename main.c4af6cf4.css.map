@@ -1,0 +1,1 @@
+{"version":3,"sources":["main.css"],"names":[],"mappings":"AAAA,KACI,QAAQ,CACR,SAAS,CACT,eACJ,CAEA,OACI,aACJ","file":"main.c4af6cf4.css","sourceRoot":"..\\src","sourcesContent":["body {\r\n    margin:0;\r\n    padding:0;\r\n    overflow:hidden;\r\n}\r\n\r\ncanvas {\r\n    display:block;\r\n}\r\n"]}
