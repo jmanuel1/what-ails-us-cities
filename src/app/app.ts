@@ -1,5 +1,6 @@
 import { GetSprite } from "../assets/loader";
 import * as PIXI from "pixi.js";
+import { roadsystem, RoadSystem } from './road.ts';
 
 type WorldObject = Player | ScrollingObject;
 
@@ -105,6 +106,7 @@ export class GameApp {
 
   static GroundPosition = 0;
   static Width = 0;
+  static height = 0;
 
   constructor(parent: HTMLElement, width: number, height: number) {
     this.app = new PIXI.Application({
@@ -119,43 +121,16 @@ export class GameApp {
     GameApp.Stage = this.app.stage;
     GameApp.GroundPosition = height - 1;
     GameApp.Width = width - 1;
+    GameApp.height = height;
+
 
      // Hack for parcel HMR
     parent.replaceChild(this.app.view, parent.lastElementChild);
 
-    window.onkeydown = (ev: KeyboardEvent): any => {
-      GameApp.PressedSpace = ev.key == " ";
-      if (ev.target == document.body) {
-        ev.preventDefault();
-      }
-    };
-
-    window.ontouchstart = (ev: TouchEvent): any => {
-      GameApp.PressedSpace = true;
-    };
-
     GameApp.SetupGame();
 
-    this.app.ticker.add(delta => {
-      GameApp.Update(delta);
-
-      // if we didn't lose, display score and max score, otherwise show a "game over" prompt
-      if (!GameApp.GameOver) {
-        GameApp.ScoreText.text =
-          "Score: " +
-          Math.ceil(GameApp.Score) +
-          " - Max Score: " +
-          Math.ceil(GameApp.MaxScore);
-      } else {
-        if (GameApp.Score == 0) {GameApp.ScoreText.text = "Press spacebar or touch screen to start!"; return;};
-        GameApp.ScoreText.text =
-        "Game over! You scored " +
-        Math.ceil(GameApp.Score) +
-        ". Max Score: " +
-        Math.ceil(GameApp.MaxScore) +
-        ". Press spacebar or touch to restart.";
-      }
-    });
+    let roadInstructions = roadsystem.iterate(5);
+    this.roadSystem = new RoadSystem(roadInstructions, GameApp.Width, GameApp.height);
   }
 
   static SetupGame() {
@@ -163,17 +138,6 @@ export class GameApp {
 
     this.ActiveEntities = new Array<WorldObject>();
     this.Stage.removeChildren();
-
-    let player = new Player();
-    GameApp.ActiveEntities.push(player);
-
-    let myGraph = new PIXI.Graphics();
-    myGraph.position.set(0, 75);
-    myGraph.lineStyle(2, 0x000000).lineTo(300, 0);
-
-    GameApp.Stage.addChild(myGraph);
-    this.ScoreNextObstacle = 0;
-    GameApp.Stage.addChild(GameApp.ScoreText);
   }
 
   static Update(delta: number) {

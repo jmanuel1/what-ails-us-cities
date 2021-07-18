@@ -1,3 +1,3 @@
 import {GameApp} from "./app/app";
 
-const myGame = new GameApp(document.body,  300, 75);
+const myGame = new GameApp(document.body,  window.innerWidth/3, window.innerHeight/3);
