@@ -24,7 +24,7 @@ export class RoadSystem {
     let tileCountY = Math.floor(height/10);
     let tileX = Math.floor(tileCountX/2), tileY = Math.floor(tileCountY/2);
     this.segments = [];
-    this.grid = new Grid(10, 10);
+    this.grid = new Grid(10, 10, tileCountX, tileCountY);
     let direction = 'down';
     let stack = [];
     for (let char of instructions) {
@@ -32,10 +32,11 @@ export class RoadSystem {
       switch (char) {
         case 'F':
           // forward
-          segment = new Tile(this.edgesFromDirection(direction));
           if (this.grid.hasNonEmptyTileAt(tileX, tileY)) {
-            segment.destroy();
+            let edges = this.grid.at(tileX, tileY).edges;
+            Object.assign(edges, this.edgesFromDirection(direction));
           } else {
+            segment = new Tile(this.edgesFromDirection(direction));
             this.grid.push(segment, tileX, tileY);
           }
           tileX += direction === 'left' ? -1 : direction === 'right' ? 1 : 0;
@@ -78,6 +79,7 @@ export class RoadSystem {
           break;
       }
     }
+    this.grid.fixIntersections();
     this.grid.draw();
   }
 
@@ -113,12 +115,14 @@ type Direction = 'up' | 'down' | 'left' | 'right';
 
 class Grid {
   grid: Tile[][];
-  tileWidth, tileHeight: number;
+  tileWidth, tileHeight, width, height: number;
 
-  constructor(tileWidth: number, tileHeight: number) {
+  constructor(tileWidth: number, tileHeight: number, width: number, height: number) {
     this.grid = [];
     this.tileWidth = tileWidth;
     this.tileHeight = tileHeight;
+    this.width = width;
+    this.height = height;
   }
 
   public hasNonEmptyTileAt(x: number, y: number) {
@@ -126,6 +130,10 @@ class Grid {
       return false;
     }
     return this.grid[x][y].isNonEmpty();
+  }
+
+  at(tileX: number, tileY: number) {
+    return this.grid[tileX] && this.grid[tileX][tileY];
   }
 
   public push(tile: Tile, x: number, y: number) {
@@ -138,7 +146,74 @@ class Grid {
   draw() {
     this.grid.forEach((column, i) => {
       column.forEach((tile, j) => {
-        tile.draw(i * this.tileWidth, j * this.tileHeight, this.tileWidth, this.tileHeight);
+        tile.draw(i * this.tileWidth, j * this.tileHeight, this.tileWidth, this.tileHeight, this);
+      });
+    });
+  }
+
+  fixIntersections() {
+    this.grid.forEach((column, i) => {
+      column.forEach((tile, j) => {
+        if (tile.edges.left) {
+          if (i > 0 && this.hasNonEmptyTileAt(i - 1, j)) {
+            let neighbor = this.at(i - 1, j);
+            if (neighbor.edges.top && neighbor.edges.bottom) {
+              neighbor.edges.right = true;
+            }
+          }
+        }
+        if (tile.edges.right) {
+          if (i <= this.grid.length && this.hasNonEmptyTileAt(i + 1, j)) {
+            let neighbor = this.at(i + 1, j);
+            if (neighbor.edges.top && neighbor.edges.bottom) {
+              neighbor.edges.left = true;
+            }
+          }
+        }
+        if (tile.edges.top) {
+          if (j > 0 && this.hasNonEmptyTileAt(i, j - 1)) {
+            let neighbor = this.at(i, j - 1);
+            if (neighbor.edges.left && neighbor.edges.right) {
+              neighbor.edges.bottom = true;
+            }
+          }
+        }
+        if (tile.edges.bottom) {
+          if (j <= column.length && this.hasNonEmptyTileAt(i, j + 1)) {
+            let neighbor = this.at(i, j + 1);
+            if (neighbor.edges.left && neighbor.edges.right) {
+              neighbor.edges.top = true;
+            }
+          }
+        }
+      });
+
+    });
+    this.grid.forEach((column, i) => {
+      column.forEach((tile, j) => {
+        if (tile.edges.left) {
+          if (i > 0 && !this.hasNonEmptyTileAt(i - 1, j)) {
+            this.push(new Tile({right: true}, {culDeSac: true}), i - 1, j));
+          }
+        }
+        if (tile.edges.right) {
+          if (i <= this.grid.length && !this.hasNonEmptyTileAt(i + 1, j)) {
+            this.push(new Tile({left: true}, {culDeSac: true}), i + 1, j));
+
+          }
+        }
+        if (tile.edges.top) {
+          if (j > 0 && !this.hasNonEmptyTileAt(i, j - 1)) {
+            this.push(new Tile({bottom: true}, {culDeSac: true}), i, j - 1));
+
+          }
+        }
+        if (tile.edges.bottom) {
+          if (j <= column.length && !this.hasNonEmptyTileAt(i, j + 1)) {
+            this.push(new Tile({top: true}, {culDeSac: true}), i, j + 1));
+
+          }
+        }
       });
     });
   }
@@ -154,11 +229,14 @@ type Edges = {
 class Tile {
   edges: Edges;
   road: PIXI.DisplayObject;
+  isCulDeSac: boolean;
+  x, y: number;
 
 
-  constructor(edges: Edges) {
+  constructor(edges: Edges, options: {culDeSac: boolean} = {culDeSac: false}) {
     this.edges = edges;
     this.road = null;
+    this.isCulDeSac = options.culDeSac;
   }
 
   destroy() {
@@ -174,28 +252,134 @@ class Tile {
     return !this.isNonEmpty();
   }
 
-  draw(x: number, y: number, width: number, height: number) {
+  draw(x: number, y: number, width: number, height: number, grid: Grid) {
     this.road = new PIXI.Graphics();
+    this.x = x;
+    this.y = y;
     let startX, startY, endX, endY;
-    if (this.edges.top && this.edges.bottom) {
+    if (this.edges.top) {
       startX = x + width/2;
       startY = y;
       endX = x + width/2;
+      endY = y + height/2;
+
+      if (this.isCulDeSac) {
+        this.road.beginFill().drawCircle(startX, startY, 5).endFill();
+      } else {
+        this.road.lineStyle(1, 0xff0000).drawRect(x, y + height/4, 1, 1);
+        this.road.lineStyle(1, 0xff0000).drawRect(x + width, y + height/4, 1, 1);
+        this.road.moveTo(startX, startY);
+        this.road.lineStyle(5, 0x000000).lineTo(endX, endY);
+      }
+    }
+    if (this.edges.bottom) {
+      startX = x + width/2;
+      startY = y + height/2;
+      endX = x + width/2;
       endY = y + height;
-    } else if (this.edges.left && this.edges.right) {
+      if (this.isCulDeSac) {
+        this.road.beginFill().drawCircle(endX, endY, 5).endFill();
+      } else {
+        this.road.moveTo(startX, startY);
+        this.road.lineStyle(5, 0x000000).lineTo(endX, endY);
+      }
+    }
+    if (this.edges.left) {
       startX = x;
       startY = y + height/2;
-      endX = x + height;
+      endX = x + width/2;
       endY = y + height/2;
-    } else if (this.isEmpty()) {
 
-    } else {
-      console.warn('tile not drawn');
+      if (this.isCulDeSac) {
+        this.road.beginFill().drawCircle(startX, startY, 5).endFill();
+      } else {
+        this.road.moveTo(startX, startY);
+        this.road.lineStyle(5, 0x000000).lineTo(endX, endY);
+      }
+    }
+    if (this.edges.right) {
+      startX = x + width/2;
+      startY = y + height/2;
+      endX = x + width;
+      endY = y + height/2;
+
+      if (this.isCulDeSac) {
+        this.road.beginFill().drawCircle(endX, endY, 5).endFill();
+      } else {
+        this.road.moveTo(startX, startY);
+        this.road.lineStyle(5, 0x000000).lineTo(endX, endY);
+      }
     }
 
-    this.road.moveTo(startX, startY);
-    this.road.lineStyle(5, 0x000000).lineTo(endX, endY);
+    this.road.interactive = true;
+    let text = null, tooltip = null;
+    this.road.on('mouseover', () => {
+      text = new PIXI.Text(`maintenance cost: 2000/year\nassociated revenue: ${this.associatedRevenue(grid)}/year`, {fontSize: 5, fill: 0x000000});
+      text.x = x;
+      text.y = y;
+      tooltip = new PIXI.Graphics()./*lineStyle(1, 0xe0e0e0).*/beginFill(0xe0e0e0).drawRect(x, y, text.width, text.height).endFill();
+      tooltip.zIndex = 1;
+      text.zIndex = 2;
+      GameApp.Stage.addChild(tooltip, text/*, tooltip*/);
+    });
+    this.road.on('mouseout', () => {
+      text.destroy();
+      tooltip.destroy();
+    });
+
+    this.road.hitArea = this.road.getBounds();
     GameApp.Stage.addChild(this.road);
 
+  }
+
+  associatedRevenue(grid: Grid) {
+    let nearbyHouses = 2;
+    let propertyTax = 200 * nearbyHouses;
+    let nearbyServiceUsage = this.nearbyNonEmptyTilesInNSteps(5, grid);
+    let nearbyServiceRevenue = 50 * nearbyServiceUsage;
+    return propertyTax + nearbyServiceRevenue;
+  }
+
+  nearbyNonEmptyTilesInNSteps(n: number, grid: Grid) {
+    let nearby = new Set([this]);
+    let nearby2 = new Set(nearby);
+    let changed = true;
+    while (changed && n > 0) {
+      changed = false;
+      n--;
+      nearby.forEach(tile => {
+        let i = Math.floor(tile.x/grid.tileWidth), j = Math.floor(tile.y/grid.tileHeight);
+        if (tile.edges.left) {
+          if (i > 0 && grid.hasNonEmptyTileAt(i - 1, j)) {
+            nearby2.add(grid.at(i - 1, j));
+            changed = true;
+          }
+        }
+        if (tile.edges.right) {
+          if (i <= grid.width && grid.hasNonEmptyTileAt(i + 1, j)) {
+            nearby2.add(grid.at(i + 1, j));
+            changed = true;
+
+          }
+        }
+        if (tile.edges.top) {
+          if (j > 0 && grid.hasNonEmptyTileAt(i, j - 1)) {
+            nearby2.add(grid.at(i, j - 1));
+            changed = true;
+
+          }
+        }
+        if (tile.edges.bottom) {
+          if (j <= grid.height && grid.hasNonEmptyTileAt(i, j + 1)) {
+            nearby2.add(grid.at(i, j + 1));
+            changed = true;
+
+          }
+        }
+      });
+      nearby = nearby2;
+      nearby2 = new Set(nearby);
+    }
+    return nearby.size - 1;
   }
 }

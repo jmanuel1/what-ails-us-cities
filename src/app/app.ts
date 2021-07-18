@@ -117,6 +117,7 @@ export class GameApp {
       resolution: 3
     });
     PIXI.settings.SCALE_MODE = PIXI.SCALE_MODES.NEAREST;
+    PIXI.settings.SORTABLE_CHILDREN = true;
 
     GameApp.Stage = this.app.stage;
     GameApp.GroundPosition = height - 1;
