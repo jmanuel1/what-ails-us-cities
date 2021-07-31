@@ -32,3 +32,24 @@ go to [http://localhost:1234](http://localhost:1234) in your browser. Done.
 * `npm run build` - runs the compiler once and generates a production build.
 * `npm run build_serve` - it makes a build and serves it to port 8080.
 * `npm run test` - runs the unit tests (.spec.ts files).
+
+# TODO
+
+* README
+* deploy process
+* link from website
+* ~~todos~~
+* ~~improve visuals~~
+* improve roads
+* improve house drawing
+* tweak tooltip positioning
+* indicate hovered/selected grid tile
+* add to resume
+* address weaknesses from devpost
+* typescript
+* other features
+* color-coded cost/revenue/profit on roads
+* more realistic models
+* a11y
+* more interactivity
+* tweet
