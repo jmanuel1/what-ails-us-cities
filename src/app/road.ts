@@ -257,6 +257,8 @@ class Tile {
     this.x = x;
     this.y = y;
     let startX, startY, endX, endY;
+    const roadColor = 0x333333;
+    const houseColor = 0xaa8855;
     if (this.edges.top) {
       startX = x + width/2;
       startY = y;
@@ -264,12 +266,12 @@ class Tile {
       endY = y + height/2;
 
       if (this.isCulDeSac) {
-        this.road.beginFill().drawCircle(startX, startY, 5).endFill();
+        this.road.beginFill(roadColor).drawCircle(startX, startY, 5).endFill();
       } else {
-        this.road.lineStyle(1, 0xff0000).drawRect(x, y + height/4, 1, 1);
-        this.road.lineStyle(1, 0xff0000).drawRect(x + width, y + height/4, 1, 1);
+        this.road.lineStyle(1, houseColor).drawRect(x, y + height/4, 1, 1);
+        this.road.lineStyle(1, houseColor).drawRect(x + width, y + height/4, 1, 1);
         this.road.moveTo(startX, startY);
-        this.road.lineStyle(5, 0x000000).lineTo(endX, endY);
+        this.road.lineStyle(5, roadColor).lineTo(endX, endY);
       }
     }
     if (this.edges.bottom) {
@@ -278,10 +280,10 @@ class Tile {
       endX = x + width/2;
       endY = y + height;
       if (this.isCulDeSac) {
-        this.road.beginFill().drawCircle(endX, endY, 5).endFill();
+        this.road.beginFill(roadColor).drawCircle(endX, endY, 5).endFill();
       } else {
         this.road.moveTo(startX, startY);
-        this.road.lineStyle(5, 0x000000).lineTo(endX, endY);
+        this.road.lineStyle(5, roadColor).lineTo(endX, endY);
       }
     }
     if (this.edges.left) {
@@ -291,10 +293,10 @@ class Tile {
       endY = y + height/2;
 
       if (this.isCulDeSac) {
-        this.road.beginFill().drawCircle(startX, startY, 5).endFill();
+        this.road.beginFill(roadColor).drawCircle(startX, startY, 5).endFill();
       } else {
         this.road.moveTo(startX, startY);
-        this.road.lineStyle(5, 0x000000).lineTo(endX, endY);
+        this.road.lineStyle(5, roadColor).lineTo(endX, endY);
       }
     }
     if (this.edges.right) {
@@ -304,10 +306,10 @@ class Tile {
       endY = y + height/2;
 
       if (this.isCulDeSac) {
-        this.road.beginFill().drawCircle(endX, endY, 5).endFill();
+        this.road.beginFill(roadColor).drawCircle(endX, endY, 5).endFill();
       } else {
         this.road.moveTo(startX, startY);
-        this.road.lineStyle(5, 0x000000).lineTo(endX, endY);
+        this.road.lineStyle(5, roadColor).lineTo(endX, endY);
       }
     }
 

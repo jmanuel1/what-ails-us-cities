@@ -112,7 +112,7 @@ export class GameApp {
     this.app = new PIXI.Application({
       width,
       height,
-      backgroundColor: 0xa0d000,
+      backgroundColor: 0x30ff70,
       antialias: false,
       resolution: 3
     });
